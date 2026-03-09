@@ -87,12 +87,46 @@ The core of the simulator lies in its balanced policy choices, each linked to a 
 
 ---
 
+## 🌍 Multi-Language Support (i18n)
+
+The simulator supports **11 languages** powered by the Google Translate API via the `deep-translator` library. Switch instantly using the **Language** dropdown in the  sidebar.
+
+| Flag | Language | Code |
+|------|----------|----- |
+| 🇬🇧 | English *(default)* | `en` |
+| 🇮🇩 | Bahasa Indonesia | `id` |
+| 🇲🇾 | Bahasa Melayu | `ms` |
+| 🇨🇳 | 中文 (简体) | `zh-CN` |
+| 🇯🇵 | 日本語 | `ja` |
+| 🇰🇷 | 한국어 | `ko` |
+| 🇸🇦 | العربية | `ar` |
+| 🇫🇷 | Français | `fr` |
+| 🇪🇸 | Español | `es` |
+| 🇩🇪 | Deutsch | `de` |
+| 🇮🇳 | हिन्दी | `hi` |
+
+### ⚡ Caching — How it Works
+
+Translations are cached permanently in `.translation_cache.json` so each language is only ever translated **once** via API, then loaded instantly from disk on all future uses.
+
+**First-time use:** Switching to a new language triggers one API translation (~30-90 seconds). The app will warn you in advance with an estimated time.
+
+**Pre-cache all languages at once** (recommended for offline or slow-connection deployments):
+```bash
+python preload_translations.py
+```
+
+This runs once and translates all 11 languages into the cache. After it completes, all language switches are less than 1 second.
+
+---
+
 ## 🛠️ Technology Stack
 This project is built purely in Python and leverages the following libraries:
 *   **[Streamlit](https://streamlit.io/):** The core front-end framework used to render the interactive web dashboard.
 *   **[Pandas](https://pandas.pydata.org/):** Used for managing the underlying state features and historical game data.
 *   **[Scikit-Learn](https://scikit-learn.org/):** (via `joblib`) Used to load and execute the `climate_model.pkl` Random Forest Regressor for AI predictions.
-*   **[Plotly](https://plotly.com/python/):** (Optional/Implicit) Used by Streamlit's native charting functions to render the historical Temperature and Budget line graphs.
+*   **[Plotly](https://plotly.com/python/):** Used to render historical Temperature and Budget line charts.
+*   **[deep-translator](https://pypi.org/project/deep-translator/):** Free, no-API-key library that calls Google Translate to power the multi-language support.
 
 ---
 
@@ -110,6 +144,10 @@ If you want to run the code locally or modify the AI model:
 ```bash
 pip install -r requirements.txt
 ```
+4. *(Optional but recommended)* Pre-cache all 11 languages so switching is instant:
+```bash
+python preload_translations.py
+```
 
 ### Execution
 Run the following command in your terminal from the project root directory:
@@ -117,6 +155,8 @@ Run the following command in your terminal from the project root directory:
 streamlit run hackathon.py
 ```
 The application will automatically open in your default web browser at `http://localhost:8502`.
+
+> **💡 Note on first-time translation:** If you skip the preload step, switching to a non-English language for the first time will take 30–90 seconds while the app calls the Google Translate API. After that first load, the translation is permanently cached and loads in under 1 second.
 
 ---
 *Built for educational purposes to simulate the complex realities of climate change policy.*
