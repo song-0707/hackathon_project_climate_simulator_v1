@@ -289,8 +289,8 @@ def main():
 		st.markdown(current_mission["sdg"])
 		
 		with st.container(border=True):
-			st.markdown(t["mission_label"] + f"{current_mission['problem']}")
-			st.info(t["win_goal_label"] + f"{current_mission['goal_text']}")
+			st.markdown(f"{t['mission_label'].strip()} {current_mission['problem']}")
+			st.info(f"{t['win_goal_label'].strip()} {current_mission['goal_text']}")
 
 			progress_val = (game.round - 1) / current_mission["max_rounds"]
 			st.progress(progress_val, text=t["progress_label"].format(round=game.round, max_rounds=current_mission['max_rounds']))
