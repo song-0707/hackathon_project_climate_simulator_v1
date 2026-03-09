@@ -69,9 +69,25 @@ def _protect(text: str):
         text = text.replace(tok, marker, 1)
     return text, mapping
 
-def _restore(text: str, mapping: dict) -> str:
-    for marker, original in mapping.items():
-        text = text.replace(marker, original)
+def _restore(text: str, map_tokens: dict[str, str]) -> str:
+    """Restore placeholders to translated strings."""
+    for token, original in map_tokens.items():
+        text = text.replace(token, original)
+    return text
+
+def _clean_markdown(text: str) -> str:
+    """
+    Translators often break markdown by adding spaces (e.g., `** Text **`) 
+    or converting backticks to local quotes (`「Text」`). This fixes them for Streamlit.
+    """
+    # Fix bold: ** Text ** -> **Text**
+    text = re.sub(r'\*\*\s*(.*?)\s*\*\*', r'**\1**', text)
+    # Fix italics: * Text * -> *Text* (negative lookbehind/ahead prevents matching **)
+    text = re.sub(r'(?<!\*)\*\s*([^\*]+?)\s*\*(?!\*)', r'*\1*', text)
+    # Fix backticks translated to brackets/quotes
+    text = re.sub(r'[「“]\s*(.*?)\s*[」”]', r'``\1``', text)
+    # Fix spaces inside double backticks: `` Text `` -> ``Text``
+    text = re.sub(r'``\s*(.*?)\s*``', r'``\1``', text)
     return text
 
 
@@ -129,7 +145,7 @@ def _translate_list(raw: list[str], target: str) -> list[str]:
     key = _cache_key(target, raw)
     cache = _load_cache()
     if key in cache:
-        return cache[key]   # ⚡ instant — already translated before
+        return [_clean_markdown(t) for t in cache[key]]   # ⚡ instant — already translated before
 
     # Protect format placeholders
     protected, maps = [], []
@@ -139,7 +155,7 @@ def _translate_list(raw: list[str], target: str) -> list[str]:
         maps.append(m)
 
     translated = _batch_translate(protected, target)
-    result = [_restore(t, m) for t, m in zip(translated, maps)]
+    result = [_clean_markdown(_restore(t, m)) for t, m in zip(translated, maps)]
 
     # Persist to disk so next session is instant
     cache[key] = result
