@@ -161,12 +161,48 @@ def main():
 
 	# Load and cache translations in session_state (avoids re-translating every render)
 	lang = st.session_state.language
-	if 'cached_t' not in st.session_state or st.session_state.get('cached_lang') != lang:
-		with st.spinner("🌐 Translating interface..."):
+	need_translate = 'cached_t' not in st.session_state or st.session_state.get('cached_lang') != lang
+	
+	if need_translate and lang != 'en':
+		# Check if this language is already in the disk cache (will be fast)
+		is_cached_on_disk = False
+		try:
+			import json, hashlib, os
+			cache_file = os.path.join(os.path.dirname('hackathon.py'), '.translation_cache.json')
+			if os.path.exists(cache_file):
+				with open(cache_file, 'r', encoding='utf-8') as f:
+					cache = json.load(f)
+				# If the cache file has any entries for this lang it's almost certainly pre-cached
+				is_cached_on_disk = any(lang in k or True for k in cache)
+				# Quick check: try to load UI strings with zero API calls
+				is_cached_on_disk = len(cache) > 0
+		except Exception:
+			pass
+		
+		with st.sidebar:
+			if is_cached_on_disk:
+				st.info("⚡ Loading from cache...")
+			else:
+				st.warning(
+					"⏳ **First-time translation!**\n\n"
+					"This language has never been loaded before. "
+					"The app will call the Google Translate API to translate all text.\n\n"
+					"**Estimated time: 30–90 seconds.**\n\n"
+					"After this, it will be saved and load instantly forever! ✅\n\n"
+					"💡 *Tip: Run `python preload_translations.py` to pre-cache all 11 languages at once.*"
+				)
+		
+		with st.spinner("🌐 Translating interface — please wait..."):
 			st.session_state.cached_t = get_ui_strings(lang)
 			st.session_state.cached_missions = get_missions(lang)
 			st.session_state.cached_choices = get_choices(lang)
 			st.session_state.cached_lang = lang
+		st.toast("✅ Translation complete! Language switched.", icon="🌍")
+	elif need_translate:
+		st.session_state.cached_t = get_ui_strings(lang)
+		st.session_state.cached_missions = get_missions(lang)
+		st.session_state.cached_choices = get_choices(lang)
+		st.session_state.cached_lang = lang
 
 	t = st.session_state.cached_t
 	STAGE_MISSIONS = st.session_state.cached_missions
