@@ -69,23 +69,41 @@ def _protect(text: str):
         text = text.replace(tok, marker, 1)
     return text, mapping
 
+
 def _restore(text: str, map_tokens: dict[str, str]) -> str:
-    """Restore placeholders to translated strings."""
+    """Restore placeholders to translated strings, handling CJK spacing and full-width."""
+    # 1. Normalize full-width Latin/Numeric characters to half-width
+    # (Fixes the issue where Japanese/Chinese translations return ＸＴＫＮ０Ｘ)
+    normalized_text = ""
+    for char in text:
+        code = ord(char)
+        # 0xFF01 to 0xFF5E are full-width ASCII characters
+        if 0xFF01 <= code <= 0xFF5E:
+            normalized_text += chr(code - 0xFEE0)
+        else:
+            normalized_text += char
+    text = normalized_text
+
+    # 2. Replace token with regex to ignore accidental spaces and case changes
     for token, original in map_tokens.items():
-        text = text.replace(token, original)
+        # Turns "XTKN0X" into a flexible pattern like r"X\s*T\s*K\s*N\s*0\s*X"
+        pattern = r'\s*'.join(list(token))
+        text = re.sub(pattern, original, text, flags=re.IGNORECASE)
+
     return text
+
 
 def _clean_markdown(text: str) -> str:
     """
-    Translators often break markdown by adding spaces (e.g., `** Text **`) 
+    Translators often break markdown by adding spaces (e.g., `** Text **`)
     or converting backticks to local quotes (`「Text」`). This fixes them for Streamlit.
     """
     # Fix bold: ** Text ** -> **Text**
     text = re.sub(r'\*\*\s*(.*?)\s*\*\*', r'**\1**', text)
     # Fix italics: * Text * -> *Text* (negative lookbehind/ahead prevents matching **)
     text = re.sub(r'(?<!\*)\*\s*([^\*]+?)\s*\*(?!\*)', r'*\1*', text)
-    # Fix backticks translated to brackets/quotes
-    text = re.sub(r'[「“]\s*(.*?)\s*[」”]', r'``\1``', text)
+    # Fix backticks translated to various CJK brackets/quotes (Added 『 』 and 【 】)
+    text = re.sub(r'[「“『【]\s*(.*?)\s*[」”』】]', r'``\1``', text)
     # Fix spaces inside double backticks: `` Text `` -> ``Text``
     text = re.sub(r'``\s*(.*?)\s*``', r'``\1``', text)
     return text
@@ -197,14 +215,14 @@ _EN_UI_ORDERED = [
         "\n\n**Numerical Impact:** Temp: {temp_diff}°C | Carbon: {carb_diff} Mt | "
         "Budget: ${budg_diff}M | Support: {supp_diff}%"),
     ("fail_temp",
-        "🔥 Global Temperature met or exceeded 2.0°C! The climate has reached a "
-        "tipping point, leading to catastrophic and irreversible environmental damage."),
+        "🔥 Global temperatures met or exceeded 2.0°C! Irreversible sea-level rise has flooded "
+        "coastal cities, and lethal heatwaves have caused total ecological collapse."),
     ("fail_support",
-        "😡 Public Support dropped below 20%. "
-        "The citizens have rioted to overthrow your government!"),
+        "😡 Public Support dropped below 20%. Food shortages and climate anxiety "
+        "have sparked massive riots. The citizens have overthrown your government!"),
     ("fail_budget",
-        "💸 The National Budget has hit zero. "
-        "The country has defaulted and the government cannot function!"),
+        "💸 The National Budget has hit zero. The country has defaulted, leading to "
+        "total economic collapse. The government can no longer function or protect its citizens!"),
     ("stage_clear",       "✅ You successfully cleared {title}! You met all requirements."),
     ("goal_not_met",      "🚨 GOAL NOT MET: {fail_msg}"),
     ("restart_btn",       "🔄 Restart Game"),
@@ -238,7 +256,7 @@ _EN_MISSIONS = {
         "problem":      "Deforestation and harsh farming chemicals are hurting our land and animals. As a leader, you must protect nature while keeping people fed and happy.",
         "goal_text":    "Lower Carbon Emissions to 160.0 Mt or lower AND keep Public Support above 50%.",
         "context":      "Forests act as 'carbon sinks,' meaning they absorb massive amounts of CO2 from the air. When forests are cut down for agriculture or timber, that trapped carbon is released, making global warming worse. At the same time, harsh chemical fertilizers used in farming run off into rivers, polluting the water. However, abruptly stopping farming can lead to food shortages. You must find a balance between protecting nature and sustaining livelihoods.",
-        "fail_message": "You failed to lower emissions enough, or you angered the public too much!",
+        "fail_message": "You failed to lower emissions, or angered the public too much! Severe droughts and agricultural collapse have devastated the land.",
         "max_rounds":   3,
         "check_win":    lambda s: s.carbon <= 160.0 and s.support > 50.0,
     },
@@ -248,7 +266,7 @@ _EN_MISSIONS = {
         "problem":      "Our cities are filled with smog and traffic jams. You need to fix how people travel without going bankrupt!",
         "goal_text":    "Keep the Budget above $300M AND ensure Public Support is at or above 60%.",
         "context":      "Transportation is one of the largest sources of greenhouse gases globally. Traditional cars rely on fossil fuels, releasing smog that chokes city air. Shifting thousands of people onto public transit drastically reduces the 'carbon footprint' per person. However, building railways is incredibly expensive. Can you afford to modernize the city?",
-        "fail_message": "You either bankrupted the city or the citizens protested your transit policies!",
+        "fail_message": "You bankrupted the city or citizens protested! Urban infrastructure has crumbled under extreme, unbreathable smog.",
         "max_rounds":   2,
         "check_win":    lambda s: s.budget >= 300.0 and s.support >= 60.0,
     },
@@ -258,7 +276,7 @@ _EN_MISSIONS = {
         "problem":      "The country runs on dirty coal power. You must upgrade the power grid before the planet gets too hot!",
         "goal_text":    "Keep Global Temperature at or below 1.5°C.",
         "context":      "For decades, humanity has burned fossil fuels to generate electricity. This releases CO2, acting like a blanket trapping the sun's heat—causing Global Warming. A rise of more than 1.5°C will cause catastrophic sea-level rise and extreme weather. We must transition to renewable energy like solar, wind, or nuclear. But these transitions disrupt established industries and can cost billions.",
-        "fail_message": "Global temperatures exceeded the 1.5°C threshold. The energy grid failed the climate.",
+        "fail_message": "Global temperatures exceeded the 1.5°C threshold. The energy grid failed the climate, unleashing super-monsoons and devastating typhoons across the region.",
         "max_rounds":   2,
         "check_win":    lambda s: s.temperature <= 1.5,
     },
@@ -281,7 +299,7 @@ _EN_CHOICES = {
             {"label": "💣 🪓 Option C: Sell Forests to Logging Conglomerate",
              "hint": "[SDG 15] Massive instant wealth, but nature is completely destroyed and citizens will riot.",
              "effects": {"deforestation_rate": +50, "support": -85, "budget": +200, "carbon": +30.0, "temperature": +0.15},
-             "explanation": "You sold off the final state-protected lands. The country made hundreds of millions overnight, but the forests were clear-cut within weeks. Citizens have lost their jobs and homes, and the rioting has begun."},
+             "explanation": "You sold off the final protected lands. The country made hundreds of millions overnight, but the forests were clear-cut in weeks. Citizens lost their homes to extreme flooding, and the riots have begun."},
         ],
         2: [
             {"label": "🥩 🌾 Option A: Tax Meat Products",
@@ -317,7 +335,7 @@ _EN_CHOICES = {
             {"label": "💣 🚗 Option C: Abolish Public Transit & Build 10-Lane Highways",
              "hint": "[SDG 11] Saves transit costs but causes unbreathable smog.",
              "effects": {"public_buses_deployed": -50, "car_pooling_rate": -20, "budget": +100, "fossil_fuel_use": +40, "carbon": +45.0, "temperature": +0.20},
-             "explanation": "You shut down all bus and rail services, forcing everyone into cars. The city became a massive traffic jam. Air quality hit dangerous levels immediately."},
+             "explanation": "You shut down all bus and train services, forcing everyone to use cars. The city became a massive traffic jam. Air quality hit danger levels immediately, causing mass hospitalizations from lethal smog."},
         ],
         2: [
             {"label": "🛑 🏙️ Option A: Force Mandatory Carpooling",
@@ -343,7 +361,7 @@ _EN_CHOICES = {
             {"label": "💣 🏭 Option C: Subsidize Unregulated Coal Mining",
              "hint": "[SDG 13] The cheapest way to get electricity, but guarantees catastrophic warming.",
              "effects": {"fossil_fuel_use": +50, "renewable_investment": -30, "budget": +50, "carbon": +60.0, "temperature": +0.30},
-             "explanation": "You doubled down on dirty coal because it was cheap. The economy saw a short boom, but the massive surge in carbon emissions pushed the global temperature past the point of no return!"},
+             "explanation": "You bet on dirty coal because it was cheap. The economy saw a short boom, but the massive surge in carbon emissions pushed the temperature past the point of no return, guaranteeing lethal heatwaves!"},
         ],
         2: [
             {"label": "💰 🌍 Option A: Charge Polluters a Carbon Tax",
