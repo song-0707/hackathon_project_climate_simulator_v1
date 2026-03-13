@@ -1,6 +1,7 @@
 # 🌍 Student Climate Simulator (AI Powered)
 
 Welcome to the **Student Climate Simulator**, an interactive, educational web application designed to teach students about the complex trade-offs involved in global climate policy. 
+---
 DEMO video: https://youtu.be/lFew4lFTfeI
 ---
 
